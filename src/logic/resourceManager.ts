@@ -127,10 +127,18 @@ export const purchaseItem = (
 
 /**
  * Calculates combined modifiers based on owned items.
- * @param {ExtendedGameState} gameState - Current game state.
+ * @param {string[]} ownedHardware - List of owned hardware IDs
+ * @param {string[]} ownedAiModels - List of owned AI model IDs
+ * @param {any[]} hardwareData - Full hardware data from CSV
+ * @param {any[]} aiModelData - Full AI model data from CSV
  * @returns {object} - An object containing calculated modifiers (e.g., { speedMultiplier: 1.1, errorMultiplier: 0.9 }).
  */
-export const calculateCombinedModifiers = (gameState: ExtendedGameState) => {
+export const calculateCombinedModifiers = (
+  ownedHardware: string[],
+  ownedAiModels: string[],
+  hardwareData: any[],
+  aiModelData: any[]
+) => {
   const modifiers = {
     speedMultiplier: 1.0,
     errorMultiplier: 1.0,
@@ -140,8 +148,8 @@ export const calculateCombinedModifiers = (gameState: ExtendedGameState) => {
 
   // Apply Hardware Modifiers (assuming only one active hardware matters, e.g., the best one?)
   // This needs clarification - using the *first* owned for now as a placeholder
-  const activeHardwareId = gameState.ownedHardware[0]; // Simplistic: assumes first is active
-  const activeHardware = gameState.hardware.find((h: HardwareItem) => h.Hardware_ID === activeHardwareId);
+  const activeHardwareId = ownedHardware[0]; // Simplistic: assumes first is active
+  const activeHardware = hardwareData.find((h: HardwareItem) => h.Hardware_ID === activeHardwareId);
   if (activeHardware) {
     // Example: Higher Processing Power increases speed, higher Memory reduces errors
     modifiers.speedMultiplier *= (1 + (activeHardware.Processing_Power - 0.5)); // Example formula
@@ -149,9 +157,16 @@ export const calculateCombinedModifiers = (gameState: ExtendedGameState) => {
   }
 
   // Apply AI Model Modifiers (assuming best owned model is used, or specific model assigned to project?)
-  // Needs clarification - for now, let's ignore AI model global effects, apply per project if needed
-
-  // Apply Prompt Modifiers (Prompts are usually applied actively during intervention, not passive)
+  // For MVP, let's use the first owned AI model if any
+  const activeAiModelId = ownedAiModels[0];
+  const activeAiModel = aiModelData.find((m: AiModelItem) => m.Model_ID === activeAiModelId);
+  if (activeAiModel) {
+    // Example: Higher Accuracy reduces errors, higher Inference_Speed increases speed
+    modifiers.errorMultiplier *= (1 - activeAiModel.Accuracy * 0.2); // Example formula
+    modifiers.speedMultiplier *= (1 + activeAiModel.Inference_Speed * 0.1); // Example formula
+    // Apply YOLO success rate boost based on AI model
+    modifiers.yoloMultiplier *= (1 + activeAiModel.Accuracy * 0.3); // Example formula
+  }
 
   return modifiers;
 }; 

@@ -10,7 +10,11 @@ import GpuSlot from './GpuSlot';
 import { GameContext } from '../../contexts/GameContext';
 import { ProjectState } from '../../logic/projectLogic';
 
-const GpuGrid: React.FC = () => {
+interface GpuGridProps {
+  onGpuClick: (gpuId: number) => void;
+}
+
+const GpuGrid: React.FC<GpuGridProps> = ({ onGpuClick }) => {
   const context = useContext(GameContext);
   
   if (!context) {
@@ -43,6 +47,7 @@ const GpuGrid: React.FC = () => {
           project={slot.project} 
           status={slot.status} 
           progress={slot.progress}
+          onClick={() => onGpuClick(slot.id)}
         />
       ))}
     </div>

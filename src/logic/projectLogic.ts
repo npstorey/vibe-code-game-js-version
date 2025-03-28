@@ -16,6 +16,7 @@ export interface ProjectState {
   status: 'running' | 'error' | 'completed' | 'failed';
   baseErrorRate: number;
   yoloSuccessRate: number;
+  baselineTime: number; // Store Baseline_Time for progress calculations
 }
 
 interface Modifiers {
@@ -38,13 +39,19 @@ export const updateProjectProgress = (
 ): ProjectState => {
   let updatedProj = { ...projectState };
 
-  // Simple progress example (needs actual calculation based on Baseline_Time, modifiers)
-  // Assume Baseline_Time is in minutes, timeUnits is blocks (e.g., 1 block = 15 mins?)
-  // This needs refinement based on game balance. Let's use a simple percentage for now.
-  const progressIncrement = 0.05 * timeUnits * (modifiers.speedMultiplier || 1); // Example: 5% per block base speed
+  // Calculate progress based on baselineTime
+  const baseTimeBlocks = projectState.baselineTime || 1;
+  const timeUnitsPerBlock = 1; // Assuming 1 call = 1 time block passed
+  const effectiveSpeedMultiplier = modifiers.speedMultiplier || 1.0;
 
+  // Calculate progress added in this block
+  // If Baseline_Time is 4 blocks, each block adds 1/4 = 0.25 progress, modified by speed
+  const progressIncrement = (timeUnitsPerBlock / baseTimeBlocks) * effectiveSpeedMultiplier;
+
+  // Ensure progress doesn't exceed 1
   updatedProj.progress = Math.min(1, updatedProj.progress + progressIncrement);
-  updatedProj.timeRemaining = Math.max(0, updatedProj.timeRemaining - timeUnits); // Or recalculate based on progress
+  // Update timeRemaining based on progress
+  updatedProj.timeRemaining = Math.max(0, baseTimeBlocks * (1 - updatedProj.progress));
 
   // Check for error threshold triggers
   const previousProgress = projectState.progress;
@@ -82,11 +89,19 @@ export const checkErrorProbability = (
   projectState: ProjectState, 
   modifiers: Modifiers
 ): boolean => {
-  // Placeholder logic - Needs actual formula from TID/PRD
-  // Example: Base Error Rate * (1 - AI Accuracy) * (1 - Hardware Modifier) ...
-  const baseErrorRate = projectState.baseErrorRate || 0.1; // Get from project data
-  const effectiveErrorRate = baseErrorRate * (modifiers.errorMultiplier || 1); // Apply modifiers
-  return Math.random() < effectiveErrorRate;
+  // Get base error rate from project data
+  const baseErrorRate = projectState.baseErrorRate;
+  // Apply modifiers from hardware, AI models
+  const errorMultiplier = modifiers.errorMultiplier || 1.0;
+  
+  // Effective rate is base rate adjusted by modifiers
+  const effectiveErrorRate = baseErrorRate * errorMultiplier;
+  
+  // Ensure rate is within reasonable bounds (0% to 100%)
+  const clampedErrorRate = Math.max(0, Math.min(1, effectiveErrorRate));
+  
+  // Random check against the effective error rate
+  return Math.random() < clampedErrorRate;
 };
 
 /**
@@ -100,9 +115,10 @@ export const resolveYolo = (
   modifiers: Modifiers
 ): ProjectState => {
   let updatedProj = { ...projectState };
-  const yoloSuccessRate = projectState.yoloSuccessRate || 0.7; // Get from project data
-  const effectiveSuccessRate = yoloSuccessRate * (modifiers.yoloMultiplier || 1); // Apply modifiers
-
+  const yoloSuccessRate = projectState.yoloSuccessRate;
+  const effectiveSuccessRate = yoloSuccessRate * (modifiers.yoloMultiplier || 1);
+  
+  // Check if YOLO attempt succeeds
   if (Math.random() < effectiveSuccessRate) {
     updatedProj.status = 'running'; // Error cleared, project resumes
     updatedProj.errors = updatedProj.errors.slice(0, -1); // Remove last error
@@ -110,8 +126,9 @@ export const resolveYolo = (
   } else {
     updatedProj.status = 'failed'; // Project failed
     console.log(`Project ${updatedProj.projectId} YOLO failed!`);
-    // TODO: Apply penalties (reputation loss, etc.)
+    // Penalty will be applied in the GameContext
   }
+  
   return updatedProj;
 };
 
@@ -137,14 +154,26 @@ export const resolveIntervention = (
     return updatedProj; // No change if prompt is invalid
   }
 
-  // Placeholder logic: Intervention always succeeds for MVP?
-  // Or calculate success based on prompt stats (Clarity, Specificity etc.)?
-  // Let's assume it always clears the error for now.
-  updatedProj.status = 'running';
-  updatedProj.errors = updatedProj.errors.slice(0, -1); // Remove last error
-  console.log(`Project ${updatedProj.projectId} intervention with ${promptUsed.Name} succeeded!`);
-
-  // TODO: Consume resources (time block? prompt usage limit?)
+  // For MVP Phase 1, use a high base success rate (90%)
+  // In future phases, calculate based on prompt stats and AI model
+  const baseSuccessRate = 0.9;
+  const promptQuality = (
+    parseFloat(promptUsed.Clarity || "0") + 
+    parseFloat(promptUsed.Specificity || "0") + 
+    parseFloat(promptUsed.Adaptability || "0")
+  ) / 3; // Average of prompt stats
+  
+  const successRate = baseSuccessRate * (promptQuality / 5); // Assuming prompt stats are 0-5
+  
+  if (Math.random() < successRate) {
+    updatedProj.status = 'running';
+    updatedProj.errors = updatedProj.errors.slice(0, -1); // Remove last error
+    console.log(`Project ${updatedProj.projectId} intervention with ${promptUsed.Name} succeeded!`);
+  } else {
+    // In MVP, intervention rarely fails, but we should handle this case
+    console.log(`Project ${updatedProj.projectId} intervention with ${promptUsed.Name} failed!`);
+    // Keep the error state
+  }
 
   return updatedProj;
 }; 

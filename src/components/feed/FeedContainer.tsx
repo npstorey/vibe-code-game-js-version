@@ -20,10 +20,9 @@ const FeedContainer: React.FC = () => {
   const { gameState, actions } = context;
   const { activeFeedMessages } = gameState;
   
-  // This function would typically call an action from the context
+  // Call the action handler from context
   const handleFeedAction = (messageId: string, action: 'accept' | 'dismiss' | 'archive') => {
-    console.log(`Message ${messageId} - Action: ${action}`);
-    // Would call something like: actions.handleFeedAction(messageId, action)
+    actions.handleFeedMessageAction(messageId, action);
   };
   
   return (

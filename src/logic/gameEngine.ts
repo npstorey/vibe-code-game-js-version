@@ -8,11 +8,13 @@
 import { TIME_BLOCKS_PER_DAY } from './constants';
 import * as ProjectLogic from './projectLogic';
 import { generateNewMessages, GameState } from './feedLogic';
+import { calculateCombinedModifiers } from './resourceManager';
 
 export interface ExtendedGameState extends GameState {
   day: number;
   timeBlocks: number;
   credits: number;
+  reputation: number;
   activeProjects: ProjectLogic.ProjectState[];
   availableProjects: any[];
   hardware: any[];
@@ -22,6 +24,7 @@ export interface ExtendedGameState extends GameState {
   ownedAiModels: string[];
   ownedPrompts: string[];
   availableGpus: number;
+  completedProjects: string[];
   // Other game state properties will be added as needed
 }
 
@@ -46,10 +49,16 @@ export const advanceTimeBlock = (gameState: ExtendedGameState): ExtendedGameStat
   newState = { ...newState, day: newDay, timeBlocks: newTimeBlocks };
 
   // 2. Update Active Projects Progress
+  // Calculate combined modifiers from owned hardware and AI models
+  const modifiers = calculateCombinedModifiers(
+    newState.ownedHardware,
+    newState.ownedAiModels,
+    newState.hardware,
+    newState.aiModels
+  );
+
   newState.activeProjects = newState.activeProjects.map(proj => {
     if (proj.status === 'running') {
-      // Pass relevant parts of gameState (like owned hardware/AI mods)
-      const modifiers = { /* calculate modifiers based on ownedHardware, ownedAiModels etc. */ };
       return ProjectLogic.updateProjectProgress(proj, 1, modifiers); // Advance by 1 time unit
     }
     return proj; // Return unchanged if not running

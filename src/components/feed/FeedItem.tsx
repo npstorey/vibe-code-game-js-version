@@ -1,7 +1,7 @@
 /**
  * File: src/components/feed/FeedItem.tsx
  * Project: Vibe Coding Simulator (MVP)
- * Description: Individual message item for the feed.
+ * Description: Individual feed message display component
  * Author: Claude 3.7 Sonnet
  * Date: 2024-07-30
  */
@@ -14,49 +14,54 @@ interface FeedItemProps {
 }
 
 const FeedItem: React.FC<FeedItemProps> = ({ message, onAction }) => {
-  // Format the timestamp into a readable format
-  const formattedTime = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  
-  // Determine the background color based on message type
+  const { id, title, body, type, timestamp } = message;
+
+  // Format the timestamp for display
+  const formattedTime = `Day ${Math.floor(timestamp / 86400000)}`;
+
+  // Get the right styling based on message type
   const bgColor = 
-    message.type === 'System' ? 'bg-blue-900 border-blue-700' : 
-    message.type === 'Direct' ? 'bg-green-900 border-green-700' : 
-    'bg-purple-900 border-purple-700'; // Social
-    
+    type === 'System' ? 'bg-blue-900' :
+    type === 'Direct' ? 'bg-green-900' :
+    'bg-purple-900'; // Social
+  
+  const borderColor = 
+    type === 'System' ? 'border-blue-700' :
+    type === 'Direct' ? 'border-green-700' :
+    'border-purple-700'; // Social
+  
   return (
-    <div className={`p-3 rounded border ${bgColor}`}>
-      <div className="flex justify-between items-start mb-1">
-        <h4 className="font-bold">{message.title}</h4>
+    <div className={`p-3 rounded border ${borderColor} ${bgColor}`}>
+      <h4 className="font-semibold">{title}</h4>
+      <p className="text-sm text-gray-300 my-2">{body}</p>
+      
+      <div className="flex justify-between items-center mt-3">
         <span className="text-xs text-gray-400">{formattedTime}</span>
-      </div>
-      
-      <div className="text-sm mb-3">{message.body}</div>
-      
-      <div className="flex justify-end space-x-2 text-xs">
-        {message.action === 'Accept Project' && (
-          <button 
-            onClick={() => onAction(message.id, 'accept')}
-            className="bg-green-700 hover:bg-green-600 px-2 py-1 rounded"
-          >
-            Accept Project
-          </button>
-        )}
         
-        {message.action === 'Open' && (
+        <div className="flex space-x-2">
+          {message.action === 'Accept Project' && (
+            <button 
+              onClick={() => onAction(id, 'accept')}
+              className="px-2 py-1 bg-green-600 hover:bg-green-700 text-xs rounded"
+            >
+              Accept
+            </button>
+          )}
+          
           <button 
-            onClick={() => onAction(message.id, 'accept')}
-            className="bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded"
+            onClick={() => onAction(id, 'dismiss')}
+            className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-xs rounded"
           >
-            Open
+            Dismiss
           </button>
-        )}
-        
-        <button 
-          onClick={() => onAction(message.id, 'dismiss')}
-          className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded"
-        >
-          Dismiss
-        </button>
+          
+          <button 
+            onClick={() => onAction(id, 'archive')}
+            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-xs rounded"
+          >
+            Archive
+          </button>
+        </div>
       </div>
     </div>
   );

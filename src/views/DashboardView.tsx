@@ -5,15 +5,21 @@
  * Author: Claude 3.7 Sonnet
  * Date: 2024-07-30
  */
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import GpuGrid from '../components/gpu/GpuGrid';
 import FeedContainer from '../components/feed/FeedContainer';
+import ProjectCard from '../components/projects/ProjectCard';
+import Modal from '../components/common/Modal';
+import { ProjectState } from '../logic/projectLogic';
 import { GameContext } from '../contexts/GameContext';
 import { useGameLoop } from '../hooks/useGameLoop';
 
 const DashboardView: React.FC = () => {
   const context = useContext(GameContext);
   const { isRunning, speed, toggleGameLoop, changeSpeed } = useGameLoop();
+  const [interventionModalOpen, setInterventionModalOpen] = useState(false);
+  const [selectedErroredProject, setSelectedErroredProject] = useState<ProjectState | null>(null);
+  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
   
   if (!context) {
     return <div className="p-4">Loading dashboard data...</div>;
@@ -29,6 +35,38 @@ const DashboardView: React.FC = () => {
   // Handler for changing game speed
   const handleSpeedChange = (newSpeed: 'slow' | 'medium' | 'fast') => {
     changeSpeed(newSpeed);
+  };
+
+  // Handle GPU slot click
+  const handleGpuSlotClick = (gpuId: number) => {
+    const project = gameState.activeProjects.find(p => p.assignedGpu === gpuId);
+    if (project && project.status === 'error') {
+      setSelectedErroredProject(project);
+      setInterventionModalOpen(true);
+    }
+  };
+
+  // Handle YOLO attempt
+  const handleYolo = () => {
+    if (selectedErroredProject) {
+      actions.handleYoloAttempt(selectedErroredProject.projectId);
+      setInterventionModalOpen(false);
+    }
+  };
+
+  // Handle Intervention attempt
+  const handleIntervention = () => {
+    if (selectedErroredProject && selectedPromptId) {
+      actions.handleInterventionAttempt(selectedErroredProject.projectId, selectedPromptId);
+      setInterventionModalOpen(false);
+    }
+  };
+
+  // Get project name from ID
+  const getProjectName = (projectId: string) => {
+    const project = gameState.availableProjects.find(p => p.Project_ID === projectId) || 
+                    gameState.activeProjects.find(p => p.projectId === projectId);
+    return project ? project.Name || "Unknown Project" : "Unknown Project";
   };
   
   return (
@@ -81,7 +119,7 @@ const DashboardView: React.FC = () => {
         <div className="lg:col-span-2">
           <section className="mb-8">
             <h3 className="text-xl font-semibold mb-4">GPU Resources</h3>
-            <GpuGrid />
+            <GpuGrid onGpuClick={handleGpuSlotClick} />
           </section>
           
           <section>
@@ -91,41 +129,25 @@ const DashboardView: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {gameState.availableProjects.map((project) => (
-                  <div 
-                    key={project.Project_ID} 
-                    className="bg-gray-800 border border-gray-700 rounded p-4 hover:bg-gray-750 cursor-pointer"
-                  >
-                    <h4 className="font-bold text-lg">{project.Name}</h4>
-                    <div className="text-xs text-gray-400 mb-2">Domain: {project.Domain}</div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Complexity: {project.Complexity}</span>
-                      <span>Reward: {project.Reward} Credits</span>
-                    </div>
-                    <div className="flex justify-between text-sm mb-4">
-                      <span>Est. Time: {project.Baseline_Time} blocks</span>
-                      <span>Error Rate: {project.Error_Rate * 100}%</span>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        // Find first available GPU
-                        const availableGpuId = Array.from(
-                          { length: gameState.availableGpus }, 
-                          (_, i) => i + 1
-                        ).find(id => 
-                          !gameState.activeProjects.some(p => p.assignedGpu === id)
-                        );
-                        
-                        if (availableGpuId) {
-                          actions.assignProjectToGpu(project.Project_ID, availableGpuId);
-                        } else {
-                          alert("No available GPUs. Complete or cancel a project first.");
-                        }
-                      }}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm"
-                    >
-                      Assign to GPU
-                    </button>
-                  </div>
+                  <ProjectCard
+                    key={project.Project_ID}
+                    project={project}
+                    onAssign={(projectId) => {
+                      // Find first available GPU
+                      const availableGpuId = Array.from(
+                        { length: gameState.availableGpus }, 
+                        (_, i) => i + 1
+                      ).find(id => 
+                        !gameState.activeProjects.some(p => p.assignedGpu === id)
+                      );
+                      
+                      if (availableGpuId) {
+                        actions.assignProjectToGpu(project.Project_ID, availableGpuId);
+                      } else {
+                        alert("No available GPUs. Complete or cancel a project first.");
+                      }
+                    }}
+                  />
                 ))}
               </div>
             )}
@@ -136,6 +158,83 @@ const DashboardView: React.FC = () => {
           <FeedContainer />
         </div>
       </div>
+
+      {/* Intervention Modal */}
+      <Modal 
+        isOpen={interventionModalOpen} 
+        onClose={() => setInterventionModalOpen(false)}
+        title="Project Error"
+      >
+        {selectedErroredProject && (
+          <div className="text-white">
+            <div className="bg-red-800 p-4 rounded mb-4">
+              <p className="font-bold">
+                Error detected in project: {getProjectName(selectedErroredProject.projectId)}
+              </p>
+              <p className="text-sm mt-2">
+                Current progress: {Math.round(selectedErroredProject.progress * 100)}%
+              </p>
+            </div>
+            
+            <p className="mb-4">How would you like to handle this error?</p>
+            
+            <div className="space-y-4">
+              <div>
+                <button 
+                  onClick={handleYolo}
+                  className="w-full bg-orange-600 hover:bg-orange-700 py-2 px-4 rounded mb-2"
+                >
+                  Attempt YOLO Fix
+                </button>
+                <p className="text-xs text-gray-400">
+                  Quick fix with {Math.round(selectedErroredProject.yoloSuccessRate * 100)}% success rate. 
+                  No time cost, but project fails if unsuccessful.
+                </p>
+              </div>
+              
+              <div>
+                <p className="font-semibold mb-2">Intervene with a Prompt:</p>
+                <div className="bg-gray-700 p-3 rounded mb-2">
+                  <select 
+                    className="w-full bg-gray-800 p-2 rounded"
+                    value={selectedPromptId || ""}
+                    onChange={(e) => setSelectedPromptId(e.target.value)}
+                  >
+                    <option value="">Select a prompt...</option>
+                    {gameState.ownedPrompts.map(promptId => {
+                      const prompt = gameState.prompts.find(p => p.Prompt_ID === promptId);
+                      return prompt ? (
+                        <option key={promptId} value={promptId}>
+                          {prompt.Name} (Quality: {(
+                            (parseFloat(prompt.Clarity || 0) + 
+                             parseFloat(prompt.Specificity || 0) + 
+                             parseFloat(prompt.Adaptability || 0)) / 3
+                          ).toFixed(1)}/5)
+                        </option>
+                      ) : null;
+                    })}
+                  </select>
+                </div>
+                
+                <button 
+                  onClick={handleIntervention}
+                  disabled={!selectedPromptId}
+                  className={`w-full py-2 px-4 rounded ${
+                    selectedPromptId 
+                      ? 'bg-blue-600 hover:bg-blue-700' 
+                      : 'bg-gray-600 cursor-not-allowed'
+                  }`}
+                >
+                  Confirm Intervention
+                </button>
+                <p className="text-xs text-gray-400 mt-1">
+                  Uses a time block but has a high success rate based on prompt quality.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

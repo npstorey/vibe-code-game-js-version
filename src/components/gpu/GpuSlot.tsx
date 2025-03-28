@@ -12,9 +12,16 @@ interface GpuSlotProps {
   project: string | null;
   status: 'running' | 'error' | 'completed' | 'failed' | 'idle';
   progress: number;
+  onClick?: () => void;
 }
 
-const GpuSlot: React.FC<GpuSlotProps> = ({ gpuId, project, status, progress }) => {
+const GpuSlot: React.FC<GpuSlotProps> = ({ 
+  gpuId, 
+  project, 
+  status, 
+  progress,
+  onClick
+}) => {
   const isActive = status === 'running' || status === 'error';
   const bgColor = 
     status === 'running' ? 'bg-blue-600 hover:bg-blue-700' :
@@ -34,7 +41,10 @@ const GpuSlot: React.FC<GpuSlotProps> = ({ gpuId, project, status, progress }) =
   const progressPercent = Math.round(progress * 100);
 
   return (
-    <div className={`p-4 rounded border ${borderColor} ${bgColor} transition-colors cursor-pointer`}>
+    <div 
+      className={`p-4 rounded border ${borderColor} ${bgColor} transition-colors cursor-pointer`}
+      onClick={onClick}
+    >
       <div className="flex justify-between items-center mb-2">
         <span className="font-semibold">GPU #{gpuId}</span>
         {isActive && <input type="checkbox" checked readOnly className="form-checkbox h-4 w-4 text-green-500 rounded focus:ring-0" />}
