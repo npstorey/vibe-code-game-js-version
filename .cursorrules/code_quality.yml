@@ -1,0 +1,66 @@
+# Code Quality Cursor Rules for Vibe Coding Simulator
+
+# Rule: CSV Parsing Validation and Error Handling
+- prompt: |
+    Ensure the CSV parsing logic clearly validates required fields and gracefully handles missing or malformed entries:
+    - Add validation for required fields with clear error messages
+    - Implement graceful error handling that logs warnings but doesn't crash the application
+    - Include clear comments explaining the validation logic
+    - Use TypeScript interfaces to define expected data structures
+    - Include fallback values for missing or invalid data
+  glob: src/logic/csvParser.ts
+
+# Rule: React Context State Management
+- prompt: |
+    When modifying or implementing React Context state logic:
+    - Ensure all state updates use immutable patterns (e.g., {...prevState, newProperty: value})
+    - Use clear, descriptive action types for complex state updates
+    - Consider refactoring to use useReducer for complex state logic
+    - Document state shape with TypeScript interfaces
+    - Break large context providers into smaller, more focused providers if they grow too complex
+    - Optimize render performance using memoization techniques where appropriate
+  glob: src/contexts/**/*.tsx
+
+# Rule: Component Structure and Separation of Concerns
+- prompt: |
+    Confirm that each React component maintains a clear separation of concerns:
+    - UI components should focus purely on rendering and receive all logic through props, custom hooks, or contexts
+    - Avoid embedding complex game logic directly within presentational components
+    - Extract reusable UI patterns into separate components
+    - Use TypeScript props interfaces to document component APIs
+    - Include prop validation and default values where appropriate
+    - Consider implementing React.memo for pure components that receive the same props frequently
+  glob: src/components/**/*.tsx
+
+# Rule: Tailwind CSS Standardization
+- prompt: |
+    Ensure consistent use of Tailwind CSS classes across all component files:
+    - Avoid inline style attributes; refactor all inline styles to Tailwind utility classes
+    - Extract common class combinations to custom utility classes in a central location
+    - Follow consistent patterns for responsive design (mobile-first approach)
+    - Use semantic class naming where available in the theme configuration
+    - Group related Tailwind classes logically (layout, spacing, colors, typography)
+    - Consider extracting very complex or repeated class combinations into component classes
+  glob: src/components/**/*.tsx
+
+# Rule: Game Logic Modularization
+- prompt: |
+    Verify all game logic modules have clearly separated responsibilities:
+    - Each module should perform exactly one logical function or task
+    - Clearly document each module's purpose, inputs, outputs, and dependencies
+    - Use TypeScript interfaces to define data structures and function signatures
+    - Implement unit tests for critical game logic functions
+    - Use pure functions where possible to make testing and debugging easier
+    - Add detailed comments for complex algorithms or business rules
+  glob: src/logic/**/*.ts
+
+# Rule: Hook Design Patterns
+- prompt: |
+    Ensure custom React hooks follow best practices:
+    - Each hook should do one thing well
+    - Follow the 'use' naming convention for all hooks
+    - Handle cleanup in useEffect to prevent memory leaks
+    - Verify hook dependencies are correctly specified in dependency arrays
+    - Use TypeScript for clear return type definitions
+    - Consider memoization for expensive calculations
+  glob: src/hooks/**/*.ts 

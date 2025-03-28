@@ -1,0 +1,63 @@
+# .cursorrules
+# Rules to guide the AI assistant in aligning the Vibe Coding Simulator MVP
+# with the target layout (original_image.png) and TID/best practices.
+
+# Universal Rule: Enforce Header Comments
+- prompt: |
+    Ensure each file starts with a standardized header comment:
+    /**
+     * File: [Relative Path from src/]
+     * Project: Vibe Coding Simulator (MVP)
+     * Description: [Brief description of file purpose]
+     * Author: [Your Name/Alias]
+     * Date: [YYYY-MM-DD]
+     */
+    Add or update if incomplete or missing.
+  glob: src/**/*.{ts,tsx,jsx,js,css}
+
+# Rule: Dashboard View Layout - Time Controls Placement
+- prompt: |
+    Verify the layout of this Dashboard view against the target screenshot `original_image.png`.
+    Specifically, ensure the time control buttons ('Auto-Advance', speed selection, 'Advance Time') are positioned within the right-hand grid column (lg:col-span-1), directly above the <FeedContainer /> component, not at the top of the main view area.
+    Adjust the JSX structure and Tailwind classes if the placement is incorrect.
+  glob: src/views/DashboardView.tsx
+
+# Rule: Dashboard View Layout - Use ProjectCard Component
+- prompt: |
+    Check how available projects are rendered. This view should use a dedicated <ProjectCard> component (from src/components/projects/ProjectCard.tsx) within the .map() loop.
+    If projects are being rendered using inline JSX/styling directly here, refactor to import and use the <ProjectCard> component, passing the 'project' data and 'onAssign' function as props.
+  glob: src/views/DashboardView.tsx
+
+# Rule: ProjectCard Component Styling
+- prompt: |
+    Style this ProjectCard component to closely match the appearance in `original_image.png`.
+    Key styling points:
+    - Dark background (use `bg-secondary` if defined in theme, otherwise a suitable dark gray like `bg-gray-800`).
+    - Clear layout for Name, Domain, Complexity, Reward, Est. Time, Error Rate.
+    - Use appropriate text sizes and colors (e.g., white/light gray).
+    - The 'Assign to GPU' button should be prominent (use `bg-action-green` or similar bright green), span the full width at the bottom, and have bold white text.
+    - Ensure padding and margins match the visual target.
+    - Prioritize using semantic theme colors (e.g., `bg-secondary`, `text-primary`, `bg-action-green`) if they are defined in `tailwind.config.js`.
+  glob: src/components/projects/ProjectCard.tsx # Apply this once the file is created
+
+# Rule: GPU Slot Idle State Styling
+- prompt: |
+    Review the rendering logic based on the 'status' prop.
+    When status is 'idle', ensure the component renders a simple block matching `original_image.png`:
+    - Background: `bg-gray-700` (or `bg-secondary` if themed).
+    - Border: `border-gray-600`.
+    - Content: Only show "GPU #{gpuId}" and "No project".
+    - IMPORTANT: Do *not* render the progress bar or the status text (e.g., "IDLE") when the status is 'idle'.
+    When status is *not* 'idle' (running, error, etc.), the existing detailed view with progress bar and status text should be shown with appropriate colors.
+  glob: src/components/gpu/GpuSlot.tsx
+
+# Rule: Consistent Theme Color Usage
+- prompt: |
+    When applying or modifying Tailwind classes for colors (backgrounds, text, borders, buttons), prioritize using semantic theme colors defined in `tailwind.config.js` (e.g., `bg-primary`, `bg-secondary`, `text-accent-blue`, `bg-action-green`, `border-medium-gray`).
+    Avoid hardcoding standard Tailwind colors like `bg-gray-800`, `text-blue-300`, `bg-green-600` if a corresponding theme color exists. Check the config file if unsure.
+  glob: src/**/*.{ts,tsx}
+
+# Rule: README.md Content Check
+- prompt: |
+    Verify the content of this README.md file. It should contain the comprehensive project overview, setup instructions, file structure explanation, and technical details provided earlier, not the default Create React App text. If it contains the default text, it needs to be replaced with the correct project documentation.
+  glob: README.md 

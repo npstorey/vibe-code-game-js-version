@@ -1,0 +1,6 @@
+Prompt_ID,Name,Clarity,Specificity,Structured_Format,Contextual_Info,Cost
+prompt_001,Basic Instruction,0.6,0.5,0.4,0.5,0
+prompt_002,Detailed Task Description,0.7,0.7,0.6,0.6,100
+prompt_003,Structured Requirements,0.8,0.8,0.8,0.7,200
+prompt_004,Context-Rich Request,0.7,0.6,0.7,0.9,300
+prompt_005,Expert Level Instruction,0.9,0.9,0.9,0.8,500 

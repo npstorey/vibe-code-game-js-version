@@ -1,0 +1,58 @@
+# Component-specific cursor rules for the Vibe Coding Simulator
+
+# Rule: GameContext Error Handling
+- prompt: |
+    Review the GameContext provider for proper error handling during intervention and YOLO actions.
+    Ensure the context provides methods like:
+    - resolveYolo(projectId)
+    - resolveIntervention(projectId, promptId)
+    These should properly call the corresponding functions in projectLogic.ts and update the game state.
+    Check for and add appropriate error message handling when these actions fail.
+  glob: src/contexts/GameContext.tsx
+
+# Rule: Project Error Visualization
+- prompt: |
+    When a project is in 'error' state, the GpuSlot should clearly indicate this with:
+    - Red background (bg-error or bg-red-600)
+    - An error icon or warning symbol
+    - Text indicating "ERROR - Action Required"
+    - Two buttons: "YOLO" and "Intervene" that call the appropriate context methods
+    This matches the error visualization shown in the TID.
+  glob: src/components/gpu/GpuSlot.tsx
+
+# Rule: Feed Item Interactivity
+- prompt: |
+    Ensure the FeedItem component handles project offers correctly:
+    - When a user clicks "Accept Project" button on a message with a project offer, it should trigger the appropriate context method to add the project to availableProjects
+    - Messages should be properly dismissed/archived via the context when action buttons are clicked
+    - The 'Accept' and 'Dismiss' buttons should have hover effects (darker shade of their base color)
+  glob: src/components/feed/FeedItem.tsx
+
+# Rule: Time Block Progress Visualization
+- prompt: |
+    Enhance the TimeBlock indicator in the TopBar to:
+    - Show a visual representation of the time blocks (e.g., a series of 8 small blocks/dots)
+    - Highlight the currently active blocks (filled) and show the elapsed ones (empty)
+    - Consider adding a small loading animation during auto-advancement
+    This improves the intuitive understanding of the day progression.
+  glob: src/components/layout/TopBar.tsx
+
+# Rule: Prompt Selection Interface
+- prompt: |
+    For the error intervention workflow, create a PromptSelector component that:
+    - Shows a list of available prompts the player owns
+    - Displays each prompt's stats (Clarity, Specificity, etc.)
+    - Allows selection of a prompt to use for intervention
+    - Shows success probability based on prompt quality and project complexity
+    This component should be shown when a user chooses to intervene on a project error.
+  glob: src/components/projects/PromptSelector.tsx # Create this file if it doesn't exist
+
+# Rule: README Game Mechanics Documentation
+- prompt: |
+    Ensure the README.md includes detailed documentation on the core game mechanics:
+    - Project progression and error thresholds (25%, 50%, 75%)
+    - YOLO vs Intervention decision points
+    - How the various stats impact success rates
+    - Time and resource management strategy tips
+    This information should be in a dedicated "Game Mechanics" section, after the setup instructions.
+  glob: README.md 

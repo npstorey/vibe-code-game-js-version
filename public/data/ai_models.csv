@@ -1,0 +1,6 @@
+Model_ID,Model_Name,Accuracy,Inference_Speed,Specialization,Cost
+ai_001,Basic Assistant,0.7,0.8,General,0
+ai_002,Code Companion,0.8,0.7,Programming,500
+ai_003,Data Analyzer,0.85,0.6,Data Science,750
+ai_004,NLP Expert,0.9,0.5,Natural Language,1000
+ai_005,Advanced Coding Assistant,0.95,0.4,Programming,2000 

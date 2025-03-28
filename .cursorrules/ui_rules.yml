@@ -1,0 +1,64 @@
+# UI Enhancement Cursor Rules for Vibe Coding Simulator
+
+# Rule: Progress Bar Animation
+- prompt: |
+    Enhance the progress bar component with smooth animation:
+    - When progress updates, the bar should animate to the new value rather than jump instantly
+    - Use CSS transitions (e.g., 'transition-all duration-300')
+    - Consider adding a subtle pulsing effect to active progress bars
+    This provides better visual feedback for ongoing processes.
+  glob: src/components/common/ProgressBar.tsx
+
+# Rule: Resource Change Notification
+- prompt: |
+    Implement visual feedback when resources change:
+    - When credits increase/decrease, show a small green/red notification
+    - When a new day begins, add a subtle flash effect to the day counter
+    - Consider using CSS animations for these effects
+    These visual cues help players track changes in their resources.
+  glob: src/components/layout/TopBar.tsx
+
+# Rule: GPU State Transitions
+- prompt: |
+    Add visual transition effects for GPU state changes:
+    - When a project is assigned to a GPU, add a "fade-in" effect
+    - When a project completes or encounters an error, add an appropriate transition effect
+    - Use CSS transitions or React animation libraries
+    This makes the game feel more dynamic and responsive.
+  glob: src/components/gpu/GpuSlot.tsx
+
+# Rule: Dark Mode Theme Support
+- prompt: |
+    Ensure the application supports dark mode (already default) and optionally light mode:
+    - Define a color theme in tailwind.config.js with semantic color variables
+    - Use these variables throughout the application
+    - Consider adding a theme toggle in settings (if implemented)
+    This improves accessibility and user preference options.
+  glob: tailwind.config.js
+
+# Rule: Mobile Responsiveness
+- prompt: |
+    Verify responsive design implementation:
+    - All components should use responsive Tailwind classes (sm:, md:, lg:, etc.)
+    - Test layouts at different viewport sizes
+    - Adjust grid layouts for smaller screens (fewer columns, stacked elements)
+    This ensures the game is playable on various devices.
+  glob: src/**/*.tsx
+
+# Rule: Loading and Error States
+- prompt: |
+    Implement consistent loading and error states:
+    - During data loading, show appropriate spinners or skeleton loaders
+    - When errors occur (e.g., data fetching), show helpful error messages
+    - Consider using a toast notification system for temporary messages
+    This improves the user experience during asynchronous operations.
+  glob: src/components/**/*.tsx
+
+# Rule: Micro-interactions
+- prompt: |
+    Add subtle micro-interactions to improve user experience:
+    - Button hover/active states should have appropriate feedback
+    - Interactive elements should have cursor:pointer
+    - Consider adding small animations for common actions
+    These details make the interface feel more polished and responsive.
+  glob: src/components/**/*.tsx 

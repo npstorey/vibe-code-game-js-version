@@ -1,0 +1,11 @@
+Message_ID,Type,Title,Body,Value_Probability,Action,Project_ID
+msg_001,Social,New Connection Request,A developer wants to connect with you.,0.7,Accept,
+msg_002,Direct,Project Offer: Simple Website,A client needs a simple website built. Interested?,0.9,Accept Project,proj_001
+msg_003,System,Hardware Upgrade Available,New hardware upgrades are available in the store.,0.8,Open,
+msg_004,Direct,Project Offer: E-commerce Platform,Build an e-commerce platform for a growing business.,0.85,Accept Project,proj_002
+msg_005,Social,Industry News,Major breakthrough in AI technology announced today!,0.6,Dismiss,
+msg_006,System,Low Resources Warning,Your system resources are running low. Consider upgrading.,0.7,Dismiss,
+msg_007,Direct,Project Offer: Data Pipeline,A company needs help building a data pipeline.,0.8,Accept Project,proj_003
+msg_008,Social,Networking Event,Virtual networking event for developers this weekend.,0.5,Dismiss,
+msg_009,Direct,Project Offer: AI Integration,Help integrate AI tools into an existing platform.,0.9,Accept Project,proj_004
+msg_010,System,New AI Model Available,A new AI model has been released. Check the store!,0.75,Open, 

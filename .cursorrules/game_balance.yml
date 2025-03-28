@@ -1,0 +1,71 @@
+# Game Balance and Content Cursor Rules for Vibe Coding Simulator
+
+# Rule: Project Progression Balance
+- prompt: |
+    Review the project progression logic:
+    - The time required to complete projects should increase with complexity
+    - Error rates should correlate with complexity, but can be modified by AI models
+    - Rewards (credits, reputation) should scale with challenge but remain balanced
+    - The progression from simple to complex projects should follow a learning curve
+    Adjust calculation formulas in projectLogic.ts if the balance doesn't match these principles.
+  glob: src/logic/projectLogic.ts
+
+# Rule: AI Model Effectiveness
+- prompt: |
+    Ensure AI models provide meaningful advantages:
+    - Higher tier models should substantially reduce error rates
+    - Specialization should matter (e.g., an NLP model helps more with NLP tasks)
+    - Cost of models should be balanced against their benefits
+    - There should be trade-offs (e.g., faster but less accurate models)
+    Update logic in resourceManager.ts and gameEngine.ts to reflect these principles.
+  glob: src/logic/{resourceManager,gameEngine}.ts
+
+# Rule: Game Speed Tuning
+- prompt: |
+    Verify game pace settings:
+    - "Slow" speed should allow thoughtful decision making (~10 seconds per block)
+    - "Medium" speed should feel comfortable for familiar players (~5 seconds)
+    - "Fast" speed should be challenging but manageable (~2 seconds)
+    - Auto-advancement should have clear visual indicators
+    Adjust the SPEEDS constants in useGameLoop.ts if needed.
+  glob: src/hooks/useGameLoop.ts
+
+# Rule: CSV Data Values
+- prompt: |
+    Review the CSV data files to ensure game balance:
+    - Project difficulties should range from easy to very challenging
+    - Hardware upgrades should provide meaningful but not game-breaking advantages
+    - AI models should offer specialized benefits
+    - Prompts should have different effectiveness based on clarity and specificity
+    Adjust the values to create a balanced progression curve.
+  glob: public/data/*.csv
+
+# Rule: Feed Message Generation
+- prompt: |
+    Enhance feed message generation logic:
+    - New messages should appear at meaningful intervals
+    - Message content should be relevant to the game state
+    - Project offers should become more valuable over time
+    - Special events should occur occasionally to break up routine
+    Update the feedLogic.ts to implement these message generation principles.
+  glob: src/logic/feedLogic.ts
+
+# Rule: Economic Balance
+- prompt: |
+    Ensure the game's economy is well balanced:
+    - Starting credits should be enough to get basic upgrades
+    - Project rewards should scale with difficulty and time investment
+    - Hardware and AI model costs should create meaningful choices
+    - Players should need to strategize resource usage
+    Check and adjust the credit values and purchase costs throughout the game.
+  glob: {src/logic/resourceManager.ts,public/data/*.csv}
+
+# Rule: Visual Assets
+- prompt: |
+    Consider adding simple visual assets to enhance the experience:
+    - Simple icons for different project types/domains
+    - Status indicators (checkmarks, warning symbols, etc.)
+    - Hardware and AI model representations
+    - GPU utilization visualizations
+    Use SVG or font icons where possible to keep the codebase simple.
+  glob: src/components/**/*.tsx 
