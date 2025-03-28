@@ -44,7 +44,7 @@ export const advanceTimeBlock = (gameState: ExtendedGameState): ExtendedGameStat
     newDay += 1;
     newTimeBlocks = TIME_BLOCKS_PER_DAY; // Reset for the new day
     isNewDay = true;
-    // TODO: Add daily events logic here (e.g., generate new messages, deduct costs)
+    console.log(`Day ${newDay} begins. ${TIME_BLOCKS_PER_DAY} time blocks available.`);
   }
   newState = { ...newState, day: newDay, timeBlocks: newTimeBlocks };
 
@@ -57,15 +57,37 @@ export const advanceTimeBlock = (gameState: ExtendedGameState): ExtendedGameStat
     newState.aiModels
   );
 
+  // Track project status changes
+  let projectsCompleted = false;
+  let projectsErrored = false;
+
   newState.activeProjects = newState.activeProjects.map(proj => {
     if (proj.status === 'running') {
-      return ProjectLogic.updateProjectProgress(proj, 1, modifiers); // Advance by 1 time unit
+      const updatedProj = ProjectLogic.updateProjectProgress(proj, 1, modifiers); // Advance by 1 time unit
+      
+      // Track status changes for logging
+      if (updatedProj.status === 'completed') {
+        projectsCompleted = true;
+      }
+      if (updatedProj.status === 'error') {
+        projectsErrored = true;
+      }
+      
+      return updatedProj;
     }
     return proj; // Return unchanged if not running
   });
 
+  // Log the results
+  if (projectsCompleted) {
+    console.log("One or more projects completed this time block!");
+  }
+  if (projectsErrored) {
+    console.log("One or more projects encountered errors this time block!");
+  }
+
   // 3. Handle completed projects (move reward, update available projects list)
-  // TODO
+  // This is now handled in GameContext.handleCompletedProjects
 
   // 4. Generate new feed messages (especially if it's a new day)
   if (isNewDay) {
@@ -77,6 +99,8 @@ export const advanceTimeBlock = (gameState: ExtendedGameState): ExtendedGameStat
       activeFeedMessages: feedUpdatedState.activeFeedMessages,
       archivedFeedMessages: feedUpdatedState.archivedFeedMessages
     };
+    
+    console.log(`Generated ${feedUpdatedState.activeFeedMessages.length - newState.activeFeedMessages.length} new feed messages for day ${newDay}.`);
   }
 
   // 5. Check for endgame condition (e.g., Day 92)

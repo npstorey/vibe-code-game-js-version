@@ -5,7 +5,7 @@
  * Author: Claude 3.7 Sonnet
  * Date: 2024-07-30
  */
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import GpuGrid from '../components/gpu/GpuGrid';
 import FeedContainer from '../components/feed/FeedContainer';
 import ProjectCard from '../components/projects/ProjectCard';
@@ -19,7 +19,19 @@ const DashboardView: React.FC = () => {
   const { isRunning, speed, toggleGameLoop, changeSpeed } = useGameLoop();
   const [interventionModalOpen, setInterventionModalOpen] = useState(false);
   const [selectedErroredProject, setSelectedErroredProject] = useState<ProjectState | null>(null);
-  const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+  const [selectedPromptId, setSelectedPromptId] = useState<string>("");
+  
+  // Reset selected prompt when modal opens - moved above the conditional return
+  useEffect(() => {
+    if (!context) return; // Skip effect if context isn't ready
+    
+    if (interventionModalOpen && context.gameState.ownedPrompts.length > 0) {
+      // Auto-select the first prompt for better UX
+      setSelectedPromptId(context.gameState.ownedPrompts[0]);
+    } else if (!interventionModalOpen) {
+      setSelectedPromptId("");
+    }
+  }, [interventionModalOpen, context]);
   
   if (!context) {
     return <div className="p-4">Loading dashboard data...</div>;
@@ -51,6 +63,7 @@ const DashboardView: React.FC = () => {
     if (selectedErroredProject) {
       actions.handleYoloAttempt(selectedErroredProject.projectId);
       setInterventionModalOpen(false);
+      setSelectedErroredProject(null);
     }
   };
 
@@ -59,6 +72,7 @@ const DashboardView: React.FC = () => {
     if (selectedErroredProject && selectedPromptId) {
       actions.handleInterventionAttempt(selectedErroredProject.projectId, selectedPromptId);
       setInterventionModalOpen(false);
+      setSelectedErroredProject(null);
     }
   };
 
@@ -67,6 +81,18 @@ const DashboardView: React.FC = () => {
     const project = gameState.availableProjects.find(p => p.Project_ID === projectId) || 
                     gameState.activeProjects.find(p => p.projectId === projectId);
     return project ? project.Name || "Unknown Project" : "Unknown Project";
+  };
+
+  // Get prompt quality score (average of stats)
+  const getPromptQualityScore = (promptId: string) => {
+    const prompt = gameState.prompts.find(p => p.Prompt_ID === promptId);
+    if (!prompt) return 0;
+    
+    return (
+      (parseFloat(prompt.Clarity || 0) + 
+       parseFloat(prompt.Specificity || 0) + 
+       parseFloat(prompt.Adaptability || 0)) / 3
+    );
   };
   
   return (
@@ -162,7 +188,10 @@ const DashboardView: React.FC = () => {
       {/* Intervention Modal */}
       <Modal 
         isOpen={interventionModalOpen} 
-        onClose={() => setInterventionModalOpen(false)}
+        onClose={() => {
+          setInterventionModalOpen(false);
+          setSelectedErroredProject(null);
+        }}
         title="Project Error"
       >
         {selectedErroredProject && (
@@ -194,33 +223,35 @@ const DashboardView: React.FC = () => {
               
               <div>
                 <p className="font-semibold mb-2">Intervene with a Prompt:</p>
-                <div className="bg-gray-700 p-3 rounded mb-2">
-                  <select 
-                    className="w-full bg-gray-800 p-2 rounded"
-                    value={selectedPromptId || ""}
-                    onChange={(e) => setSelectedPromptId(e.target.value)}
-                  >
-                    <option value="">Select a prompt...</option>
-                    {gameState.ownedPrompts.map(promptId => {
-                      const prompt = gameState.prompts.find(p => p.Prompt_ID === promptId);
-                      return prompt ? (
-                        <option key={promptId} value={promptId}>
-                          {prompt.Name} (Quality: {(
-                            (parseFloat(prompt.Clarity || 0) + 
-                             parseFloat(prompt.Specificity || 0) + 
-                             parseFloat(prompt.Adaptability || 0)) / 3
-                          ).toFixed(1)}/5)
-                        </option>
-                      ) : null;
-                    })}
-                  </select>
-                </div>
+                {gameState.ownedPrompts.length === 0 ? (
+                  <p className="text-yellow-500 mb-4">You don't own any prompts yet. Purchase prompts from the store.</p>
+                ) : (
+                  <div className="bg-gray-700 p-3 rounded mb-2">
+                    <select 
+                      className="w-full bg-gray-800 p-2 rounded"
+                      value={selectedPromptId}
+                      onChange={(e) => setSelectedPromptId(e.target.value)}
+                    >
+                      {gameState.ownedPrompts.map(promptId => {
+                        const prompt = gameState.prompts.find(p => p.Prompt_ID === promptId);
+                        if (!prompt) return null;
+                        
+                        const quality = getPromptQualityScore(promptId);
+                        return (
+                          <option key={promptId} value={promptId}>
+                            {prompt.Name} (Quality: {quality.toFixed(1)}/5)
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
                 
                 <button 
                   onClick={handleIntervention}
-                  disabled={!selectedPromptId}
+                  disabled={!selectedPromptId || gameState.ownedPrompts.length === 0}
                   className={`w-full py-2 px-4 rounded ${
-                    selectedPromptId 
+                    selectedPromptId && gameState.ownedPrompts.length > 0
                       ? 'bg-blue-600 hover:bg-blue-700' 
                       : 'bg-gray-600 cursor-not-allowed'
                   }`}

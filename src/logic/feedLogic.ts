@@ -25,6 +25,30 @@ export interface GameState {
 }
 
 /**
+ * Checks if a project can be offered in the feed.
+ * @param {string} projectId - The project ID to check.
+ * @param {any} gameState - Current game state.
+ * @returns {boolean} - True if project can be offered.
+ */
+export const canOfferProject = (projectId: string, gameState: any): boolean => {
+  // Don't offer projects that are already active
+  if (gameState.activeProjects && gameState.activeProjects.some((p: any) => p.projectId === projectId)) {
+    return false;
+  }
+  
+  // Don't offer projects that are already completed
+  if (gameState.completedProjects && gameState.completedProjects.includes(projectId)) {
+    return false;
+  }
+  
+  // Don't offer if not in availableProjects list
+  const isAvailableInData = gameState.availableProjects && 
+    gameState.availableProjects.some((p: any) => p.Project_ID === projectId);
+  
+  return isAvailableInData;
+};
+
+/**
  * Generates new messages for the feed based on templates and game state.
  * @param {GameState} gameState - Current game state.
  * @returns {GameState} - Updated gameState with new feed messages.
@@ -32,22 +56,76 @@ export interface GameState {
 export const generateNewMessages = (gameState: GameState): GameState => {
   let newFeedMessages = [...gameState.activeFeedMessages];
   const messageTemplates = gameState.messageTemplates; // From CSV
+  
+  if (!messageTemplates || messageTemplates.length === 0) {
+    return { ...gameState, activeFeedMessages: newFeedMessages };
+  }
 
-  // Example: Add one random message if feed is not full
-  if (newFeedMessages.length < MAX_FEED_MESSAGES && messageTemplates.length > 0) {
-    // TODO: Add logic based on probability, day, game events
-    const randomIndex = Math.floor(Math.random() * messageTemplates.length);
-    const template = messageTemplates[randomIndex];
-    const newMessage: FeedMessage = {
-      id: `msg_${Date.now()}_${Math.random().toString(16).slice(2)}`, // Unique ID
-      type: template.Type as 'Social' | 'Direct' | 'System', 
-      title: template.Title,
-      body: template.Body,
-      action: template.Action, // e.g., 'Accept Project', 'Open', 'Dismiss'
-      projectId: template.Project_ID || undefined, // Link to a project if it's an offer
-      timestamp: Date.now(),
-    };
-    newFeedMessages.unshift(newMessage); // Add to the top
+  // Filter templates by probability and availability
+  const eligibleTemplates = messageTemplates.filter(template => {
+    // Check probability - Value_Probability is a number between 0-1
+    const probability = parseFloat(template.Value_Probability || "0.1");
+    const passedProbabilityCheck = Math.random() < probability;
+    
+    // For project offers, check if it can be offered
+    const isProjectOffer = template.Action === 'Accept Project' && template.Project_ID;
+    if (isProjectOffer) {
+      return passedProbabilityCheck && canOfferProject(template.Project_ID, gameState);
+    }
+
+    // For hardware/AI messages, can add checks based on game state if needed
+    // e.g., only show hardware messages after day 5, etc.
+    
+    return passedProbabilityCheck;
+  });
+  
+  // Select up to 3 messages to add (or fewer if not enough eligible)
+  const messagesToAdd = Math.min(3, MAX_FEED_MESSAGES - newFeedMessages.length, eligibleTemplates.length);
+  
+  if (messagesToAdd > 0 && eligibleTemplates.length > 0) {
+    // Shuffle eligible templates for randomized selection
+    const shuffledTemplates = [...eligibleTemplates].sort(() => Math.random() - 0.5);
+    
+    // Prioritize diverse message types
+    // Try to include at least one of each type if available
+    const socialTemplates = shuffledTemplates.filter(t => t.Type === 'Social');
+    const directTemplates = shuffledTemplates.filter(t => t.Type === 'Direct');
+    const systemTemplates = shuffledTemplates.filter(t => t.Type === 'System');
+    
+    const selectedTemplates: typeof shuffledTemplates = [];
+    
+    // Try to add one of each type if possible
+    if (socialTemplates.length > 0) selectedTemplates.push(socialTemplates[0]);
+    if (directTemplates.length > 0 && selectedTemplates.length < messagesToAdd) 
+      selectedTemplates.push(directTemplates[0]);
+    if (systemTemplates.length > 0 && selectedTemplates.length < messagesToAdd)
+      selectedTemplates.push(systemTemplates[0]);
+    
+    // Fill remaining slots with random templates
+    while (selectedTemplates.length < messagesToAdd && selectedTemplates.length < shuffledTemplates.length) {
+      const remainingTemplates = shuffledTemplates.filter(
+        t => !selectedTemplates.includes(t)
+      );
+      if (remainingTemplates.length > 0) {
+        selectedTemplates.push(remainingTemplates[0]);
+      } else {
+        break;
+      }
+    }
+    
+    // Convert templates to messages and add to feed
+    for (const template of selectedTemplates) {
+      const newMessage: FeedMessage = {
+        id: `msg_${Date.now()}_${Math.random().toString(16).slice(2)}`, // Unique ID
+        type: template.Type as 'Social' | 'Direct' | 'System', 
+        title: template.Title,
+        body: template.Body,
+        action: template.Action, // e.g., 'Accept Project', 'Open', 'Dismiss'
+        projectId: template.Project_ID || undefined, // Link to a project if it's an offer
+        timestamp: Date.now(),
+      };
+      newFeedMessages.unshift(newMessage); // Add to the top
+    }
   }
 
   // Ensure feed doesn't exceed max length

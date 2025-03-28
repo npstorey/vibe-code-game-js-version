@@ -13,6 +13,7 @@ import * as ProjectLogic from '../logic/projectLogic';
 import { advanceTimeBlock } from '../logic/gameEngine';
 import { purchaseItem, calculateCombinedModifiers } from '../logic/resourceManager';
 import { handleFeedAction as processFeedAction, FeedMessage } from '../logic/feedLogic';
+import { generateNewMessages } from '../logic/feedLogic';
 
 interface GameContextType {
   gameState: ExtendedGameState;
@@ -66,7 +67,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     ],
     ownedHardware: ['hw_001'], // Start with basic hardware (assuming hw_001 is basic)
     ownedAiModels: [],
-    ownedPrompts: [],
+    ownedPrompts: ['pr_001'], // Start with one basic prompt for error resolution
     activeFeedMessages: [], // Current messages shown in the feed
     archivedFeedMessages: [],
     availableGpus: 4, // Total number of GPU slots
@@ -75,20 +76,31 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (!csvLoading && csvData) {
-      setGameState(prevState => ({
-        ...prevState,
-        aiModels: csvData.aiModels || [],
-        // Filter initial available projects (example logic, needs refinement)
-        availableProjects: (csvData.projects || []).filter((p: any) => 
-          !prevState.activeProjects.some(ap => ap.projectId === p.Project_ID)
-        ),
-        prompts: csvData.prompts || [],
-        hardware: csvData.hardware || [],
-        messageTemplates: csvData.messages || [],
-        // Set initial owned hardware based on parsed data if needed
-        // ownedHardware: csvData.hardware.find(h => h.Hardware_ID === 'hw_001') ? ['hw_001'] : []
-      }));
-      // TODO: Initialize feed messages based on templates
+      setGameState(prevState => {
+        // First update the state with CSV data
+        const updatedState = {
+          ...prevState,
+          aiModels: csvData.aiModels || [],
+          // Filter initial available projects (example logic, needs refinement)
+          availableProjects: (csvData.projects || []).filter((p: any) => 
+            !prevState.activeProjects.some(ap => ap.projectId === p.Project_ID)
+          ),
+          prompts: csvData.prompts || [],
+          hardware: csvData.hardware || [],
+          messageTemplates: csvData.messages || [],
+          // Set initial owned hardware based on parsed data if needed
+          // ownedHardware: csvData.hardware.find(h => h.Hardware_ID === 'hw_001') ? ['hw_001'] : []
+        };
+        
+        // Then generate initial feed messages
+        const { activeFeedMessages, archivedFeedMessages } = generateNewMessages(updatedState);
+        
+        return {
+          ...updatedState,
+          activeFeedMessages,
+          archivedFeedMessages
+        };
+      });
     }
   }, [csvData, csvLoading]);
 
@@ -129,6 +141,14 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         
         // Add project to completed list
         newState.completedProjects = [...newState.completedProjects, project.projectId];
+        
+        // UI Feedback for completion
+        console.log(`Project ${project.projectId} completed! +${originalProject.Reward} Credits, +${originalProject.Reputation_Reward} Reputation.`);
+        // Temporary visual feedback
+        if (typeof window !== 'undefined') {
+          const projectName = originalProject.Name || project.projectId;
+          alert(`🎉 Project ${projectName} completed!\n+${originalProject.Reward} Credits\n+${originalProject.Reputation_Reward} Reputation`);
+        }
       }
     }
     
@@ -222,6 +242,24 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         
         // Remove failed project
         newState.activeProjects = newState.activeProjects.filter((p: ProjectState) => p.projectId !== projectId);
+        
+        // UI Feedback for failure
+        console.log(`Project ${projectId} YOLO attempt failed! Project lost. -10 Reputation.`);
+        if (typeof window !== 'undefined') {
+          const projectData = prevState.availableProjects.find((p: any) => p.Project_ID === projectId) || 
+                             csvData?.projects?.find((p: any) => p.Project_ID === projectId);
+          const projectName = projectData?.Name || projectId;
+          alert(`❌ YOLO attempt failed!\nProject ${projectName} lost.\n-10 Reputation`);
+        }
+      } else {
+        // UI Feedback for success
+        console.log(`Project ${projectId} YOLO attempt succeeded! Project resumed.`);
+        if (typeof window !== 'undefined') {
+          const projectData = prevState.availableProjects.find((p: any) => p.Project_ID === projectId) || 
+                             csvData?.projects?.find((p: any) => p.Project_ID === projectId);
+          const projectName = projectData?.Name || projectId;
+          alert(`✅ YOLO attempt succeeded!\nProject ${projectName} resumed.`);
+        }
       }
       
       return newState;
@@ -260,6 +298,26 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       
       // Check if intervention was successful (status changed from 'error' to 'running')
       const wasSuccessful = project.status === 'error' && updatedProject.status === 'running';
+      
+      // UI Feedback for intervention
+      if (wasSuccessful) {
+        console.log(`Project ${projectId} intervention succeeded! -1 Time Block.`);
+        
+        if (typeof window !== 'undefined') {
+          const projectData = prevState.availableProjects.find((p: any) => p.Project_ID === projectId) || 
+                             csvData?.projects?.find((p: any) => p.Project_ID === projectId);
+          const promptData = prevState.prompts.find((p: any) => p.Prompt_ID === promptId);
+          const projectName = projectData?.Name || projectId;
+          const promptName = promptData?.Name || promptId;
+          alert(`✅ Intervention with "${promptName}" succeeded!\nProject ${projectName} resumed.\n-1 Time Block`);
+        }
+      } else {
+        console.log(`Project ${projectId} intervention failed to resolve the error.`);
+        
+        if (typeof window !== 'undefined') {
+          alert(`⚠️ Intervention failed to resolve the error. Project remains in error state.`);
+        }
+      }
       
       // Return updated state
       // On success, deduct 1 time block for the intervention
@@ -323,13 +381,26 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
               baselineTime: projectToAssign.Baseline_Time
             };
             
+            // UI feedback for project assignment
+            console.log(`Project ${projectToAssign.Project_ID} accepted and assigned to GPU ${availableGpuId}.`);
+            
             return {
               ...updatedState,
               activeProjects: [...updatedState.activeProjects, newActiveProject],
               availableProjects: updatedState.availableProjects.filter((p: any) => p.Project_ID !== message.projectId)
             };
           }
+        } else {
+          // UI feedback for no available GPU
+          console.warn(`No available GPU to assign project ${message.projectId}.`);
+          if (typeof window !== 'undefined') {
+            alert(`⚠️ No available GPU to assign the project.\nComplete or cancel an active project first.`);
+          }
         }
+      } else if (actionType === 'dismiss') {
+        console.log(`Message "${message.title}" dismissed.`);
+      } else if (actionType === 'archive') {
+        console.log(`Message "${message.title}" archived for reference.`);
       }
       
       return updatedState;
