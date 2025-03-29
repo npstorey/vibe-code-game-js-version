@@ -360,7 +360,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       }
       
       // Process feed action
-      // processFeedAction only updates feedMessage-related properties, so we need to preserve the rest
+      // processFeedAction handles the archiving logic including FIFO limit enforcement
       const feedUpdatedState = processFeedAction(prevState, messageId, actionType);
       
       // Create an updated state with extended properties preserved
@@ -376,13 +376,14 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         const projectData = csvData?.projects?.find((p: any) => p.Project_ID === message.projectId);
         
         if (projectData) {
-          // Check if this project is already in availableProjects
+          // This should not happen since feed generation filters these out,
+          // but kept as a safety check in case of race conditions or state changes
           const isDuplicate = updatedState.availableProjects.some(
             (p: any) => p.Project_ID === message.projectId
           );
           
           if (isDuplicate) {
-            console.warn(`Project ${message.projectId} is already in available projects. Skipping duplicate.`);
+            console.warn(`[Safety Check] Project ${message.projectId} is already in available projects. This shouldn't happen due to feed generation filtering.`);
             return updatedState;
           }
           
@@ -396,7 +397,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
           console.error(`Project data for ${message.projectId} not found in CSV data`);
         }
       } else if (actionType === 'dismiss') {
-        console.log(`Message "${message.title}" dismissed.`);
+        console.log(`Message "${message.title}" dismissed and archived.`);
       } else if (actionType === 'archive') {
         console.log(`Message "${message.title}" archived for reference.`);
       }

@@ -127,18 +127,12 @@ export const purchaseItem = (
 
 /**
  * Calculates combined modifiers based on owned items.
- * @param {string[]} ownedHardware - List of owned hardware IDs
- * @param {string[]} ownedAiModels - List of owned AI model IDs
- * @param {any[]} hardwareData - Full hardware data from CSV
- * @param {any[]} aiModelData - Full AI model data from CSV
- * @returns {object} - An object containing calculated modifiers (e.g., { speedMultiplier: 1.1, errorMultiplier: 0.9 }).
+ * @param {ExtendedGameState} gameState - Current game state with hardware and ai model data.
+ * @returns {object} - An object containing calculated modifiers.
  */
-export const calculateCombinedModifiers = (
-  ownedHardware: string[],
-  ownedAiModels: string[],
-  hardwareData: any[],
-  aiModelData: any[]
-) => {
+export const calculateCombinedModifiers = (gameState: ExtendedGameState) => {
+  const { ownedHardware, ownedAiModels, hardware, aiModels } = gameState;
+
   const modifiers = {
     speedMultiplier: 1.0,
     errorMultiplier: 1.0,
@@ -146,27 +140,83 @@ export const calculateCombinedModifiers = (
     // Add more specific modifiers as needed
   };
 
-  // Apply Hardware Modifiers (assuming only one active hardware matters, e.g., the best one?)
-  // This needs clarification - using the *first* owned for now as a placeholder
-  const activeHardwareId = ownedHardware[0]; // Simplistic: assumes first is active
-  const activeHardware = hardwareData.find((h: HardwareItem) => h.Hardware_ID === activeHardwareId);
-  if (activeHardware) {
-    // Example: Higher Processing Power increases speed, higher Memory reduces errors
-    modifiers.speedMultiplier *= (1 + (activeHardware.Processing_Power - 0.5)); // Example formula
-    modifiers.errorMultiplier *= (1 - (activeHardware.Memory - 0.5) * 0.2); // Example formula
+  // Find the best hardware (highest Processing_Power) to use as active
+  if (ownedHardware.length > 0) {
+    const ownedHardwareItems = ownedHardware
+      .map((id: string) => hardware.find((h: HardwareItem) => h.Hardware_ID === id))
+      .filter(Boolean);
+
+    if (ownedHardwareItems.length > 0) {
+      // Get the hardware with highest Processing_Power
+      const activeHardware = ownedHardwareItems.reduce((best: HardwareItem, current: HardwareItem) => {
+        return (best.Processing_Power > current.Processing_Power) ? best : current;
+      }, ownedHardwareItems[0]);
+
+      // Apply hardware modifiers with detailed effects:
+      
+      // 1. Higher Processing Power increases speed - more powerful hardware processes work faster
+      // Slightly reduced coefficient for better balance (0.1 -> 0.08)
+      const powerEffect = 1 + (activeHardware.Processing_Power * 0.08);
+      modifiers.speedMultiplier *= powerEffect;
+      
+      // 2. Higher Memory reduces errors - more memory allows handling complex projects with fewer issues
+      // Slightly reduced coefficient for better balance (0.1 -> 0.08)
+      const memoryEffect = Math.max(0.6, 1 - (activeHardware.Memory * 0.08));
+      modifiers.errorMultiplier *= memoryEffect;
+      
+      // 3. Higher Energy Efficiency improves both speed and error rates slightly
+      // Keep efficiency bonus modest
+      const efficiencyBonus = activeHardware.Energy_Efficiency * 0.04;
+      const efficiencySpeedEffect = 1 + efficiencyBonus;
+      const efficiencyErrorEffect = 1 - efficiencyBonus;
+      modifiers.speedMultiplier *= efficiencySpeedEffect;
+      modifiers.errorMultiplier *= efficiencyErrorEffect;
+
+      console.log(`Active Hardware: ${activeHardware.Name}`);
+      console.log(`├─ Processing Power: ${activeHardware.Processing_Power} (Increases speed by ${((powerEffect-1)*100).toFixed(1)}%)`);
+      console.log(`├─ Memory: ${activeHardware.Memory} (Reduces errors by ${((1-memoryEffect)*100).toFixed(1)}%)`);
+      console.log(`└─ Efficiency: ${activeHardware.Energy_Efficiency} (Speed +${((efficiencySpeedEffect-1)*100).toFixed(1)}%, Errors -${((1-efficiencyErrorEffect)*100).toFixed(1)}%)`);
+    }
   }
 
-  // Apply AI Model Modifiers (assuming best owned model is used, or specific model assigned to project?)
-  // For MVP, let's use the first owned AI model if any
-  const activeAiModelId = ownedAiModels[0];
-  const activeAiModel = aiModelData.find((m: AiModelItem) => m.Model_ID === activeAiModelId);
-  if (activeAiModel) {
-    // Example: Higher Accuracy reduces errors, higher Inference_Speed increases speed
-    modifiers.errorMultiplier *= (1 - activeAiModel.Accuracy * 0.2); // Example formula
-    modifiers.speedMultiplier *= (1 + activeAiModel.Inference_Speed * 0.1); // Example formula
-    // Apply YOLO success rate boost based on AI model
-    modifiers.yoloMultiplier *= (1 + activeAiModel.Accuracy * 0.3); // Example formula
+  // Find the best AI model (highest Accuracy) to use as active
+  if (ownedAiModels.length > 0) {
+    const ownedAiModelItems = ownedAiModels
+      .map((id: string) => aiModels.find((m: AiModelItem) => m.Model_ID === id))
+      .filter(Boolean);
+
+    if (ownedAiModelItems.length > 0) {
+      // Get the AI model with highest Accuracy
+      const activeAiModel = ownedAiModelItems.reduce((best: AiModelItem, current: AiModelItem) => {
+        return (best.Accuracy > current.Accuracy) ? best : current;
+      }, ownedAiModelItems[0]);
+
+      // Apply AI model modifiers with detailed effects:
+      
+      // 1. Higher Accuracy reduces error rate - better AI makes fewer mistakes
+      // Slightly reduced to avoid making errors too rare (0.15 -> 0.12)
+      const accuracyEffect = Math.max(0.6, 1 - (activeAiModel.Accuracy * 0.12));
+      modifiers.errorMultiplier *= accuracyEffect;
+      
+      // 2. Higher Inference_Speed increases processing speed - faster AI completes work quicker
+      // Increased slightly to make first AI upgrade more noticeable (0.1 -> 0.12)
+      const speedEffect = 1 + (activeAiModel.Inference_Speed * 0.12);
+      modifiers.speedMultiplier *= speedEffect;
+      
+      // 3. Higher Accuracy also improves YOLO success rates - better AI can fix problems more reliably
+      // Reduced to make YOLO still risky but rewarding (0.3 -> 0.25)
+      const yoloEffect = 1 + (activeAiModel.Accuracy * 0.25);
+      modifiers.yoloMultiplier *= yoloEffect;
+
+      console.log(`Active AI Model: ${activeAiModel.Model_Name}`);
+      console.log(`├─ Accuracy: ${activeAiModel.Accuracy} (Reduces errors by ${((1-accuracyEffect)*100).toFixed(1)}%)`);
+      console.log(`├─ Speed: ${activeAiModel.Inference_Speed} (Increases speed by ${((speedEffect-1)*100).toFixed(1)}%)`);
+      console.log(`└─ YOLO Success Boost: +${((yoloEffect-1)*100).toFixed(1)}%`);
+    }
   }
+
+  // Log combined modifiers for debugging
+  console.log(`Applied Modifiers - Speed: ${modifiers.speedMultiplier.toFixed(2)}x, Error: ${modifiers.errorMultiplier.toFixed(2)}x, YOLO: ${modifiers.yoloMultiplier.toFixed(2)}x`);
 
   return modifiers;
 }; 

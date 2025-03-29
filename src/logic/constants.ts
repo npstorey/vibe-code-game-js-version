@@ -7,6 +7,7 @@
  */
 
 export const MAX_FEED_MESSAGES = 5;
+export const MAX_ARCHIVED_FEED_MESSAGES = 25; // Maximum number of archived messages to store
 export const TIME_BLOCKS_PER_DAY = 8;
 export const PROJECT_ERROR_THRESHOLDS = [0.25, 0.50, 0.75];
 
