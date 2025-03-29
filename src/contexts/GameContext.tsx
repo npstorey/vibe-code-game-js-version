@@ -376,6 +376,16 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         const projectData = csvData?.projects?.find((p: any) => p.Project_ID === message.projectId);
         
         if (projectData) {
+          // Check if this project is already in availableProjects
+          const isDuplicate = updatedState.availableProjects.some(
+            (p: any) => p.Project_ID === message.projectId
+          );
+          
+          if (isDuplicate) {
+            console.warn(`Project ${message.projectId} is already in available projects. Skipping duplicate.`);
+            return updatedState;
+          }
+          
           // Add project to available projects (rather than directly assigning to GPU)
           console.log(`Project ${message.projectId} accepted from feed, now available to assign.`);
           return {

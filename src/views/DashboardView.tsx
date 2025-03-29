@@ -34,6 +34,15 @@ const DashboardView: React.FC = () => {
     }
   }, [interventionModalOpen, context]);
   
+  // Check for duplicate project IDs in availableProjects
+  useEffect(() => {
+    if (!context) return; // Skip effect if context isn't ready
+    if (context.gameState.availableProjects.length > 0) {
+      console.log('[DashboardView] Checking availableProjects for duplicates:', 
+        JSON.stringify(context.gameState.availableProjects.map(p => p.Project_ID)));
+    }
+  }, [context]);
+  
   if (!context) {
     return <div className="p-4">Loading dashboard data...</div>;
   }
