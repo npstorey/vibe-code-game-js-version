@@ -9,6 +9,9 @@ import React, { useState } from 'react';
 import { GameProvider } from './contexts/GameContext';
 import MainLayout from './components/layout/MainLayout';
 import DashboardView from './views/DashboardView';
+import StoreView from './views/StoreView';
+import MyResourcesView from './views/MyResourcesView';
+import { useGameLoop } from './hooks/useGameLoop';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<string>('dashboard');
@@ -19,9 +22,9 @@ const App: React.FC = () => {
       case 'dashboard':
         return <DashboardView />;
       case 'resources':
-        return <div className="p-4">Resources View (Coming Soon)</div>;
+        return <MyResourcesView />;
       case 'store':
-        return <div className="p-4">Store View (Coming Soon)</div>;
+        return <StoreView />;
       case 'codesprint':
         return <div className="p-4">Code Sprint View (Coming Soon)</div>;
       default:
@@ -36,11 +39,36 @@ const App: React.FC = () => {
 
   return (
     <GameProvider>
-      <MainLayout currentView={currentView} onViewChange={handleViewChange}>
-        {renderView()}
-      </MainLayout>
+      <GameLoopController>
+        {({ isRunning }) => (
+          <MainLayout 
+            currentView={currentView} 
+            onViewChange={handleViewChange} 
+            isRunning={isRunning}
+          >
+            {renderView()}
+          </MainLayout>
+        )}
+      </GameLoopController>
     </GameProvider>
   );
+};
+
+// Separate component to handle game loop and provide it through render props
+// This isolates the loop to its own component to prevent unneeded rerenders
+const GameLoopController: React.FC<{children: (props: {isRunning: boolean}) => React.ReactNode}> = ({ children }) => {
+  const { isRunning, toggleGameLoop, changeSpeed } = useGameLoop();
+  
+  // Expose game controls to global window for development access
+  if (typeof window !== 'undefined') {
+    (window as any).__gameControls = {
+      toggleGameLoop,
+      changeSpeed,
+      isRunning
+    };
+  }
+  
+  return <>{children({ isRunning })}</>;
 };
 
 export default App;

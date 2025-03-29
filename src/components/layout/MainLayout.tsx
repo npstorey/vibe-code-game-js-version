@@ -13,12 +13,13 @@ interface MainLayoutProps {
   children: ReactNode;
   currentView?: string;
   onViewChange?: (view: string) => void;
+  isRunning: boolean;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children, currentView, onViewChange }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({ children, currentView, onViewChange, isRunning }) => {
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white">
-      <TopBar />
+      <TopBar isRunning={isRunning} />
       <main className="flex-grow overflow-auto">
         {children}
       </main>

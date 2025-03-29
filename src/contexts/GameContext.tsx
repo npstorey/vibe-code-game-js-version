@@ -5,7 +5,7 @@
  * Author: Claude 3.7 Sonnet
  * Date: 2024-07-30
  */
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useCsvLoader } from '../hooks/useCsvLoader';
 import { ExtendedGameState } from '../logic/gameEngine';
 import { ProjectState } from '../logic/projectLogic';
@@ -27,6 +27,7 @@ interface GameContextType {
     handleYoloAttempt: (projectId: string) => void;
     handleInterventionAttempt: (projectId: string, promptId: string) => void;
     handleFeedMessageAction: (messageId: string, actionType: 'accept' | 'dismiss' | 'archive') => void;
+    setBlockProgressValue: (progress: number) => void;
   };
 }
 
@@ -52,7 +53,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
     timeBlocks: 8, // Start of day
     credits: 1000, // Initial credits from screenshots
     reputation: 0, // Added reputation for project completion rewards
-    // health: 100,
+    health: 100,  // Initialize health at 100%
+    blockProgress: 0, // Track progress within current time block (0 to 1)
 
     // CSV Data Stores (initially empty, filled by useCsvLoader)
     aiModels: [],
@@ -106,18 +108,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
 
   // --- Game Logic Actions ---
 
-  const advanceTime = (blocks = 1) => {
-    for (let i = 0; i < blocks; i++) {
-      setGameState(prevState => {
-        const newState = advanceTimeBlock(prevState);
-        return handleCompletedProjects(newState);
-      });
-    }
-    // Additional logic could be added here after state updates if needed
-  };
-
   // Helper function to handle completed projects
-  const handleCompletedProjects = (state: ExtendedGameState): ExtendedGameState => {
+  const handleCompletedProjects = useCallback((state: ExtendedGameState): ExtendedGameState => {
     const completedProjects = state.activeProjects.filter(project => project.status === 'completed');
     
     if (completedProjects.length === 0) {
@@ -137,7 +129,13 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       if (originalProject) {
         // Add rewards
         creditsAdded += originalProject.Reward || 0;
-        reputationAdded += originalProject.Reputation_Reward || 0;
+        
+        // Add reputation and log change
+        const projectRepReward = originalProject.Reputation_Reward || 0;
+        reputationAdded += projectRepReward;
+        if (projectRepReward > 0) {
+          console.log(`Reputation increased by ${projectRepReward} (Project Completion). Current: ${(newState.reputation || 0) + reputationAdded}`);
+        }
         
         // Add project to completed list
         newState.completedProjects = [...newState.completedProjects, project.projectId];
@@ -159,9 +157,19 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       reputation: (newState.reputation || 0) + reputationAdded,
       activeProjects: newState.activeProjects.filter(p => p.status !== 'completed')
     };
-  };
+  }, [csvData]);
 
-  const assignProjectToGpu = (projectId: string, gpuId: number) => {
+  const advanceTime = useCallback((blocks = 1) => {
+    for (let i = 0; i < blocks; i++) {
+      setGameState(prevState => {
+        const newState = advanceTimeBlock(prevState);
+        return handleCompletedProjects(newState);
+      });
+    }
+    // Additional logic could be added here after state updates if needed
+  }, [handleCompletedProjects]);
+
+  const assignProjectToGpu = useCallback((projectId: string, gpuId: number) => {
     setGameState(prevState => {
       // Find the project in available projects
       const projectToAssign = prevState.availableProjects.find((p: any) => p.Project_ID === projectId);
@@ -191,6 +199,9 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         baselineTime: projectToAssign.Baseline_Time // Store for progress calculation
       };
       
+      // Log successful assignment
+      console.log(`Successfully assigned project ${projectToAssign.Project_ID} (${projectToAssign.Name}) to GPU ${gpuId}.`);
+      
       // Remove from available projects and add to active projects
       return {
         ...prevState,
@@ -198,13 +209,13 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         availableProjects: prevState.availableProjects.filter((p: any) => p.Project_ID !== projectId)
       };
     });
-  };
+  }, []);
 
-  const handlePurchaseItem = (itemId: string, itemType: 'hardware' | 'aiModel' | 'prompt') => {
+  const handlePurchaseItem = useCallback((itemId: string, itemType: 'hardware' | 'aiModel' | 'prompt') => {
     setGameState(prevState => purchaseItem(prevState, itemId, itemType));
-  };
+  }, []);
 
-  const handleYoloAttempt = (projectId: string) => {
+  const handleYoloAttempt = useCallback((projectId: string) => {
     setGameState(prevState => {
       // Find the project in active projects
       const projectIndex = prevState.activeProjects.findIndex((p: ProjectState) => p.projectId === projectId);
@@ -215,12 +226,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       
       // Get the project and calculate modifiers
       const project = prevState.activeProjects[projectIndex];
-      const modifiers = calculateCombinedModifiers(
-        prevState.ownedHardware, 
-        prevState.ownedAiModels, 
-        prevState.hardware, 
-        prevState.aiModels
-      );
+      const modifiers = calculateCombinedModifiers(prevState);
       
       // Update the project with YOLO result
       const updatedProject = ProjectLogic.resolveYolo(project, modifiers);
@@ -229,7 +235,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       const newActiveProjects = [...prevState.activeProjects];
       newActiveProjects[projectIndex] = updatedProject;
       
-      // Return updated state
+      // Return updated state with initial changes
       let newState = {
         ...prevState,
         activeProjects: newActiveProjects
@@ -237,19 +243,26 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       
       // Handle project failure (apply penalties)
       if (updatedProject.status === 'failed') {
-        // For MVP, just deduct some reputation
-        newState.reputation = Math.max(0, (newState.reputation || 0) - 10);
+        // Apply reputation penalty - YOLO failures cause significant reputation damage
+        const reputationPenalty = 10;
+        newState.reputation = Math.max(0, (newState.reputation || 0) - reputationPenalty);
+        console.log(`Reputation decreased by ${reputationPenalty} (YOLO Failure). Current: ${newState.reputation}`);
+        
+        // Apply a small health penalty - stressful failures impact health
+        const healthPenalty = 2;
+        newState.health = Math.max(0, newState.health - healthPenalty);
+        console.log(`Health decreased by ${healthPenalty} (YOLO Failure Stress). Current: ${newState.health}`);
         
         // Remove failed project
         newState.activeProjects = newState.activeProjects.filter((p: ProjectState) => p.projectId !== projectId);
         
         // UI Feedback for failure
-        console.log(`Project ${projectId} YOLO attempt failed! Project lost. -10 Reputation.`);
+        console.log(`Project ${projectId} YOLO attempt failed! Project lost. -${reputationPenalty} Reputation, -${healthPenalty} Health.`);
         if (typeof window !== 'undefined') {
           const projectData = prevState.availableProjects.find((p: any) => p.Project_ID === projectId) || 
                              csvData?.projects?.find((p: any) => p.Project_ID === projectId);
           const projectName = projectData?.Name || projectId;
-          alert(`❌ YOLO attempt failed!\nProject ${projectName} lost.\n-10 Reputation`);
+          alert(`❌ YOLO attempt failed!\nProject ${projectName} lost.\n-${reputationPenalty} Reputation\n-${healthPenalty} Health`);
         }
       } else {
         // UI Feedback for success
@@ -264,9 +277,9 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       
       return newState;
     });
-  };
+  }, [csvData]);
 
-  const handleInterventionAttempt = (projectId: string, promptId: string) => {
+  const handleInterventionAttempt = useCallback((projectId: string, promptId: string) => {
     setGameState(prevState => {
       // Find the project in active projects
       const projectIndex = prevState.activeProjects.findIndex((p: ProjectState) => p.projectId === projectId);
@@ -277,12 +290,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       
       // Get the project and calculate modifiers
       const project = prevState.activeProjects[projectIndex];
-      const modifiers = calculateCombinedModifiers(
-        prevState.ownedHardware, 
-        prevState.ownedAiModels, 
-        prevState.hardware, 
-        prevState.aiModels
-      );
+      const modifiers = calculateCombinedModifiers(prevState);
       
       // Update the project with intervention result
       const updatedProject = ProjectLogic.resolveIntervention(
@@ -299,9 +307,16 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       // Check if intervention was successful (status changed from 'error' to 'running')
       const wasSuccessful = project.status === 'error' && updatedProject.status === 'running';
       
+      // Small health cost for the mental effort of intervention (less than YOLO failures)
+      const healthCost = 1;
+      
+      // Apply health cost and log
+      const newHealth = Math.max(0, prevState.health - healthCost);
+      console.log(`Health decreased by ${healthCost} (Intervention Mental Effort). Current: ${newHealth}`);
+      
       // UI Feedback for intervention
       if (wasSuccessful) {
-        console.log(`Project ${projectId} intervention succeeded! -1 Time Block.`);
+        console.log(`Project ${projectId} intervention succeeded! -1 Time Block, -${healthCost} Health.`);
         
         if (typeof window !== 'undefined') {
           const projectData = prevState.availableProjects.find((p: any) => p.Project_ID === projectId) || 
@@ -309,13 +324,13 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
           const promptData = prevState.prompts.find((p: any) => p.Prompt_ID === promptId);
           const projectName = projectData?.Name || projectId;
           const promptName = promptData?.Name || promptId;
-          alert(`✅ Intervention with "${promptName}" succeeded!\nProject ${projectName} resumed.\n-1 Time Block`);
+          alert(`✅ Intervention with "${promptName}" succeeded!\nProject ${projectName} resumed.\n-1 Time Block\n-${healthCost} Health`);
         }
       } else {
-        console.log(`Project ${projectId} intervention failed to resolve the error.`);
+        console.log(`Project ${projectId} intervention failed to resolve the error. -${healthCost} Health.`);
         
         if (typeof window !== 'undefined') {
-          alert(`⚠️ Intervention failed to resolve the error. Project remains in error state.`);
+          alert(`⚠️ Intervention failed to resolve the error. Project remains in error state.\n-${healthCost} Health`);
         }
       }
       
@@ -324,17 +339,18 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       return {
         ...prevState,
         activeProjects: newActiveProjects,
-        timeBlocks: wasSuccessful ? Math.max(1, prevState.timeBlocks - 1) : prevState.timeBlocks
+        timeBlocks: wasSuccessful ? Math.max(1, prevState.timeBlocks - 1) : prevState.timeBlocks,
+        health: newHealth // Always costs some health to attempt intervention
       };
     });
-  };
+  }, [csvData]);
 
   /**
    * Handles user interaction with feed messages.
    * @param {string} messageId - ID of the message being actioned
    * @param {string} actionType - Type of action ('accept', 'dismiss', 'archive')
    */
-  const handleFeedMessageAction = (messageId: string, actionType: 'accept' | 'dismiss' | 'archive') => {
+  const handleFeedMessageAction = useCallback((messageId: string, actionType: 'accept' | 'dismiss' | 'archive') => {
     setGameState(prevState => {
       // Find the message
       const message = prevState.activeFeedMessages.find(m => m.id === messageId);
@@ -354,48 +370,20 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
         archivedFeedMessages: feedUpdatedState.archivedFeedMessages
       };
       
-      // If message has a projectId and action is 'accept', try to assign to GPU
+      // If message has a projectId and action is 'accept', add to available projects
       if (actionType === 'accept' && message.projectId) {
-        // Find first available GPU
-        const availableGpuId = Array.from(
-          { length: updatedState.availableGpus }, 
-          (_, i) => i + 1
-        ).find(id => 
-          !updatedState.activeProjects.some((p: ProjectState) => p.assignedGpu === id)
-        );
+        // Find the full project data
+        const projectData = csvData?.projects?.find((p: any) => p.Project_ID === message.projectId);
         
-        if (availableGpuId) {
-          // Find the project in available projects
-          const projectToAssign = updatedState.availableProjects.find((p: any) => p.Project_ID === message.projectId);
-          if (projectToAssign) {
-            // Assign project to GPU
-            const newActiveProject: ProjectState = {
-              projectId: projectToAssign.Project_ID,
-              assignedGpu: availableGpuId,
-              progress: 0,
-              timeRemaining: projectToAssign.Baseline_Time * 2,
-              errors: [],
-              status: 'running',
-              baseErrorRate: projectToAssign.Error_Rate,
-              yoloSuccessRate: projectToAssign.YOLO_Success,
-              baselineTime: projectToAssign.Baseline_Time
-            };
-            
-            // UI feedback for project assignment
-            console.log(`Project ${projectToAssign.Project_ID} accepted and assigned to GPU ${availableGpuId}.`);
-            
-            return {
-              ...updatedState,
-              activeProjects: [...updatedState.activeProjects, newActiveProject],
-              availableProjects: updatedState.availableProjects.filter((p: any) => p.Project_ID !== message.projectId)
-            };
-          }
+        if (projectData) {
+          // Add project to available projects (rather than directly assigning to GPU)
+          console.log(`Project ${message.projectId} accepted from feed, now available to assign.`);
+          return {
+            ...updatedState,
+            availableProjects: [...updatedState.availableProjects, projectData]
+          };
         } else {
-          // UI feedback for no available GPU
-          console.warn(`No available GPU to assign project ${message.projectId}.`);
-          if (typeof window !== 'undefined') {
-            alert(`⚠️ No available GPU to assign the project.\nComplete or cancel an active project first.`);
-          }
+          console.error(`Project data for ${message.projectId} not found in CSV data`);
         }
       } else if (actionType === 'dismiss') {
         console.log(`Message "${message.title}" dismissed.`);
@@ -405,25 +393,45 @@ export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
       
       return updatedState;
     });
-  };
+  }, [csvData]);
+
+  // Set block progress value
+  const setBlockProgressValue = useCallback((progress: number) => {
+    setGameState(prevState => ({
+      ...prevState,
+      blockProgress: progress
+    }));
+  }, []);
 
   // --- End Game Logic Actions ---
 
-  // Provide state and actions
-  const contextValue: GameContextType = {
+  // Memoize the actions object to stabilize its reference
+  const actions = useMemo(() => ({
+    advanceTime,
+    assignProjectToGpu,
+    purchaseItem: handlePurchaseItem,
+    handleYoloAttempt,
+    handleInterventionAttempt,
+    handleFeedMessageAction,
+    setBlockProgressValue
+  }), [
+    advanceTime,
+    assignProjectToGpu,
+    handlePurchaseItem,
+    handleYoloAttempt,
+    handleInterventionAttempt,
+    handleFeedMessageAction,
+    setBlockProgressValue
+  ]);
+
+  // Memoize the entire context value
+  const contextValue = useMemo(() => ({
     gameState,
-    setGameState, // Use sparingly, prefer specific action functions
+    setGameState,
     csvLoading,
     csvError,
-    actions: { // Group actions for clarity
-      advanceTime,
-      assignProjectToGpu,
-      purchaseItem: handlePurchaseItem,
-      handleYoloAttempt,
-      handleInterventionAttempt,
-      handleFeedMessageAction
-    }
-  };
+    actions
+  }), [gameState, setGameState, csvLoading, csvError, actions]);
 
   return (
     <GameContext.Provider value={contextValue}>

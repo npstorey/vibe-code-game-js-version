@@ -12,14 +12,15 @@ import ProjectCard from '../components/projects/ProjectCard';
 import Modal from '../components/common/Modal';
 import { ProjectState } from '../logic/projectLogic';
 import { GameContext } from '../contexts/GameContext';
-import { useGameLoop } from '../hooks/useGameLoop';
 
 const DashboardView: React.FC = () => {
   const context = useContext(GameContext);
-  const { isRunning, speed, toggleGameLoop, changeSpeed } = useGameLoop();
   const [interventionModalOpen, setInterventionModalOpen] = useState(false);
   const [selectedErroredProject, setSelectedErroredProject] = useState<ProjectState | null>(null);
   const [selectedPromptId, setSelectedPromptId] = useState<string>("");
+  
+  // Access game controls from window (set in App.tsx's GameLoopController)
+  const gameControls = typeof window !== 'undefined' ? (window as any).__gameControls : null;
   
   // Reset selected prompt when modal opens - moved above the conditional return
   useEffect(() => {
@@ -38,6 +39,7 @@ const DashboardView: React.FC = () => {
   }
   
   const { gameState, actions } = context;
+  const isRunning = gameState.blockProgress > 0 || false;  // Approximate running state
   
   // Handler for advancing time manually
   const handleAdvanceTime = () => {
@@ -46,15 +48,36 @@ const DashboardView: React.FC = () => {
 
   // Handler for changing game speed
   const handleSpeedChange = (newSpeed: 'slow' | 'medium' | 'fast') => {
-    changeSpeed(newSpeed);
+    if (gameControls) {
+      gameControls.changeSpeed(newSpeed);
+    }
+  };
+
+  // Handle start/stop game loop
+  const handleToggleGameLoop = () => {
+    if (gameControls) {
+      gameControls.toggleGameLoop();
+    }
   };
 
   // Handle GPU slot click
   const handleGpuSlotClick = (gpuId: number) => {
     const project = gameState.activeProjects.find(p => p.assignedGpu === gpuId);
+    
+    // Only open modal if project exists and is in error state
     if (project && project.status === 'error') {
-      setSelectedErroredProject(project);
+      console.log(`GPU ${gpuId} clicked. Project found:`, project);
+      
+      // Create a fresh copy of the project state to avoid reference issues
+      const erroredProject = { ...project };
+      
+      // Set selected project state and open modal
+      setSelectedErroredProject(erroredProject);
       setInterventionModalOpen(true);
+    } else if (project) {
+      console.log(`GPU ${gpuId} clicked. Project status: ${project.status}`);
+    } else {
+      console.log(`GPU ${gpuId} clicked. No project assigned.`);
     }
   };
 
@@ -80,7 +103,7 @@ const DashboardView: React.FC = () => {
   const getProjectName = (projectId: string) => {
     const project = gameState.availableProjects.find(p => p.Project_ID === projectId) || 
                     gameState.activeProjects.find(p => p.projectId === projectId);
-    return project ? project.Name || "Unknown Project" : "Unknown Project";
+    return project ? project.Name || `Project ${projectId}` : `Project ${projectId}`;
   };
 
   // Get prompt quality score (average of stats)
@@ -101,7 +124,7 @@ const DashboardView: React.FC = () => {
         <h2 className="text-2xl font-bold">Dashboard</h2>
         <div className="flex items-center space-x-2">
           <button 
-            onClick={toggleGameLoop}
+            onClick={handleToggleGameLoop}
             className={`font-bold py-2 px-4 rounded ${isRunning ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
           >
             {isRunning ? 'Pause' : 'Auto-Advance'}
@@ -111,19 +134,19 @@ const DashboardView: React.FC = () => {
             <div className="flex space-x-1">
               <button 
                 onClick={() => handleSpeedChange('slow')}
-                className={`px-2 py-1 rounded ${speed === 'slow' ? 'bg-blue-700' : 'bg-gray-700'}`}
+                className={`px-2 py-1 rounded bg-gray-700 hover:bg-blue-700`}
               >
                 Slow
               </button>
               <button 
                 onClick={() => handleSpeedChange('medium')}
-                className={`px-2 py-1 rounded ${speed === 'medium' ? 'bg-blue-700' : 'bg-gray-700'}`}
+                className={`px-2 py-1 rounded bg-gray-700 hover:bg-blue-700`}
               >
                 Medium
               </button>
               <button 
                 onClick={() => handleSpeedChange('fast')}
-                className={`px-2 py-1 rounded ${speed === 'fast' ? 'bg-blue-700' : 'bg-gray-700'}`}
+                className={`px-2 py-1 rounded bg-gray-700 hover:bg-blue-700`}
               >
                 Fast
               </button>
@@ -192,7 +215,7 @@ const DashboardView: React.FC = () => {
           setInterventionModalOpen(false);
           setSelectedErroredProject(null);
         }}
-        title="Project Error"
+        title={selectedErroredProject ? `Project Error: ${getProjectName(selectedErroredProject.projectId)}` : "Project Error"}
       >
         {selectedErroredProject && (
           <div className="text-white">

@@ -15,6 +15,8 @@ export interface ExtendedGameState extends GameState {
   timeBlocks: number;
   credits: number;
   reputation: number;
+  health: number;
+  blockProgress: number; // Progress within the current time block (0 to 1)
   activeProjects: ProjectLogic.ProjectState[];
   availableProjects: any[];
   hardware: any[];
@@ -45,17 +47,17 @@ export const advanceTimeBlock = (gameState: ExtendedGameState): ExtendedGameStat
     newTimeBlocks = TIME_BLOCKS_PER_DAY; // Reset for the new day
     isNewDay = true;
     console.log(`Day ${newDay} begins. ${TIME_BLOCKS_PER_DAY} time blocks available.`);
+    
+    // Apply daily health cost when a new day starts
+    const dailyHealthCost = 5;
+    newState.health = Math.max(0, newState.health - dailyHealthCost);
+    console.log(`Health decreased by ${dailyHealthCost} (Daily Mental Fatigue). Current: ${newState.health}%.`);
   }
   newState = { ...newState, day: newDay, timeBlocks: newTimeBlocks };
 
   // 2. Update Active Projects Progress
   // Calculate combined modifiers from owned hardware and AI models
-  const modifiers = calculateCombinedModifiers(
-    newState.ownedHardware,
-    newState.ownedAiModels,
-    newState.hardware,
-    newState.aiModels
-  );
+  const modifiers = calculateCombinedModifiers(newState);
 
   // Track project status changes
   let projectsCompleted = false;
